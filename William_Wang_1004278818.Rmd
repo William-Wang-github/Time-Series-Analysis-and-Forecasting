@@ -1,0 +1,113 @@
+---
+title: "ECO374 Essay Code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+if (!require("tsDyn")) install.packages("tsDyn") # Nonlinear Time Series Models with Regime Switching
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("aTSA")) install.packages("aTSA")
+if (!require("xlsx")) install.packages("xlsx")
+library(xlsx)
+library(tsDyn) # functions: SETAR
+library(tidyverse)
+library(forecast)
+library(readxl)
+library(tseries)
+library(aTSA)
+```
+
+```{r}
+essay_data <- read_excel("essay data.xlsx")
+essay_data <- na.omit(essay_data)
+essay_data_ts <- ts(essay_data, frequency = 12)
+
+acf(essay_data_ts[,2])
+adf.test(essay_data_ts[,2])
+
+plot(essay_data_ts[,2], main="Original Time Series", ylab = "y")
+```
+
+
+```{r}
+model1 <- lm(y~t, data = essay_data_ts)
+model2 <- lm(y~t+I(t^2), data = essay_data_ts)
+model3 <- lm(y~t+I(t^2)+I(t^3), data = essay_data_ts)
+model4 <- lm(y~t+I(t^2)+I(t^3)+I(t^4), data = essay_data_ts)
+model5 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5), data = essay_data_ts)
+model6 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6), data = essay_data_ts)
+model7 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6)+I(t^7), data = essay_data_ts)
+model8 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6)+I(t^7)+I(t^8), data = essay_data_ts)
+model9 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6)+I(t^7)+I(t^8)+I(t^9), data = essay_data_ts)
+model10 <- lm(y~t+I(t^2)+I(t^3)+I(t^4)+I(t^5)+I(t^6)+I(t^7)+I(t^8)+I(t^9)+I(t^10), data = essay_data_ts)
+
+ts.plot(c(AIC(model1),AIC(model2),AIC(model3),AIC(model4),AIC(model5),AIC(model6),AIC(model7),AIC(model8),AIC(model9),AIC(model10)), xlab = "Degree", ylab = "AIC", main = "Plot of AIC values vs Degree of polynomial")
+
+c(AIC(model1),AIC(model2),AIC(model3),AIC(model4),AIC(model5),AIC(model6),AIC(model7),AIC(model8),AIC(model9),AIC(model10))
+
+summary(model8)
+```
+
+
+```{r}
+model8_fit = ts(model8$fitted.values, frequency=12)
+model8_res <- ts(model8$residuals, frequency = 12)
+ts.plot(model8_res, main = "Model 8 Residual Time Series", ylab = "Model 8 Residuals")
+
+adf.test(model8_res)
+
+Box.test(model8_res, lag = 1, type = "Ljung-Box")
+Box.test(model8_res, lag = 2, type = "Ljung-Box")
+Box.test(model8_res, lag = 3, type = "Ljung-Box")
+```
+
+
+
+
+```{r}
+acf(model8_res, main = "Model 8 Residual ACF")
+pacf(model8_res, main = "Model 8 Residual PACF")
+
+ARIMA_model <- auto.arima(model8_res, max.p = 17, max.q = 21)
+summary(ARIMA_model)
+```
+
+
+```{r}
+ARIMA_model_forecast <- predict(ARIMA_model, n.ahead = 12, interval="predict")
+ts.plot(model8_res, ARIMA_model_forecast$pred, main="Forecasting Residual Series",col=c("BLACK","RED"))
+legend(x="topleft",legend=c("Residual Series","Forecast"),col=c("BLACK","RED"),lty=1,cex=1)
+```
+
+```{r}
+N <- length(essay_data_ts[,2])
+t = seq(N+1,N+12,1)
+t2 = t^2
+t3 = t^3
+t4 = t^4
+t5 = t^5
+t6 = t^6
+t7 = t^7
+t8 = t^8
+
+time_forecast = data.frame(t,t2,t3,t4,t5,t6,t7,t8)
+m8_forecast = predict(model8,time_forecast, interval="predict")
+m8_forecast = ts(m8_forecast, frequency=12, start = 16)
+ts.plot(model8_fit,m8_forecast,main="Forecasting Deterministic Component",col=c("BLACK","RED"))
+legend(x="topleft",legend=c("Deterministic Component","Forecast"),col=c("BLACK","RED"),lty=1,cex=1)
+
+Essay_forecast = m8_forecast + ARIMA_model_forecast$pred
+Essay_forecast
+
+ts.plot(essay_data_ts[,2], Essay_forecast[,1],main="Composite Forecast",col=c("BLACK","RED"))
+legend(x="topleft",legend=c("Original","Forecast"),col=c("BLACK","RED"),lty=1,cex=1)
+```
+
+```{r}
+write.xlsx(Essay_forecast, 'William_Wang_1004278818.xlsx')
+```
+
